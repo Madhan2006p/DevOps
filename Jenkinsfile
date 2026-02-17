@@ -4,7 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME = "my-html-app"
         CONTAINER_NAME = "my-html-container"
-        PORT = "8080"
+        PORT = "9090"
     }
 
     stages {
@@ -17,15 +17,19 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $IMAGE_NAME .'
+                sh '''
+                docker build -t $IMAGE_NAME .
+                '''
             }
         }
 
-        stage('Stop Old Container') {
+        stage('Stop & Remove Old Container') {
             steps {
                 sh '''
-                docker stop $CONTAINER_NAME || true
-                docker rm $CONTAINER_NAME || true
+                if [ $(docker ps -aq -f name=$CONTAINER_NAME) ]; then
+                    docker stop $CONTAINER_NAME || true
+                    docker rm $CONTAINER_NAME || true
+                fi
                 '''
             }
         }
@@ -33,11 +37,23 @@ pipeline {
         stage('Run New Container') {
             steps {
                 sh '''
-                docker run -d -p $PORT:80 \
+                docker run -d \
+                -p $PORT:80 \
                 --name $CONTAINER_NAME \
+                --restart always \
                 $IMAGE_NAME
                 '''
             }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployment Successful 🚀"
+            echo "Application running at: http://localhost:${PORT}"
+        }
+        failure {
+            echo "Deployment Failed ❌"
         }
     }
 }
